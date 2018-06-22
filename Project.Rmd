@@ -1,0 +1,130 @@
+---
+title: "FN project"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r}
+df = read.table('FN Project data.csv', header = TRUE, sep = ',')
+
+library(timeSeries)
+#Create Time Series object for Visualization
+dft = ts(df, frequency = 12, start=c(2005, 1))
+cht = ts(df$Chicken, frequency = 12, start = c(2005, 1))
+corn = ts(df$Corn, frequency = 12, start = c(2005, 1))
+```
+# Check missing value
+```{r}
+sum(is.na(df))
+```
+#First, let see the distribution of Chicken and Corn
+```{r}
+par(mfrow = c(1,2))
+hist(df$Chicken)
+hist(df$Corn)
+```
+#Time-Series chart of Chicken and Corn
+```{r}
+par(mfrow = c(2,1))
+plot(cht)
+plot(corn)
+```
+#Time-Series chart of Chicken and Corn
+```{r}
+test = lm(Chicken ~ Corn, data = df)
+summary(test)
+```
+#Create train-test data for Chicken
+#Plot ACF/PACF
+```{r}
+train_chick = df$Chicken[1:155]
+test_chick = df$Chicken[156:159]
+
+par(mfrow = c(2, 1))
+acf(diff(train_chick))
+pacf(diff(train_chick))
+```
+#Build model
+```{r}
+model1 = arima(train_chick, order = c(10, 1, 0), fixed = c(0, NA, 0, 0, 0, 0, 0, 0, 0, NA))
+model1
+
+model2 = arima(train_chick, order = c(2, 1, 0), fixed = c(0, NA))
+model2
+
+model3 = arima(train_chick, order = c(0, 2, 2))
+model3
+
+model4 = arima(train_chick, order = c(2, 2, 2))
+model4
+```
+#Models summary
+```{r}
+Models = c('Model1','Model2','Model3','Model4')
+AIC = c(model1$aic,model2$aic,model3$aic,model4$aic)
+data.frame(Models, AIC)
+```
+#Check adequecy of model
+```{r}
+plot(model4$residuals)
+par(mfrow = c(1, 2))
+acf(model1$residuals)
+pacf(model1$residuals)
+tsdiag(model1,gof=20) #Visualize residuals of model
+```
+#Forcast
+```{r}
+library(forecast)
+y_pred1 = predict(model1, 4)
+accuracy(y_pred1$pred, test_chick)
+matplot(cbind(test_chick, y_pred1$pred), type = 'l')
+```
+#Add Corn to model
+```{r}
+#Create Corn train/test
+train_corn = df$Corn[1:155]
+test_corn = df$Corn[156:159]
+
+#Add Corn to previous best result model
+model5 = arima(train_chick, order = c(10, 1, 0), fixed = c(0, NA, 0, 0, 0, 0, 0, 0, 0, NA, NA), xreg = train_corn)
+model5
+tsdiag(model5,gof=24)
+
+y_pred5 = predict(model5,4, newxreg = test_corn )
+accuracy(y_pred5$pred, test_chick)
+matplot(cbind(test_chick, y_pred5$pred),type= 'l')
+```
+#Compare result with previous model
+```{r}
+Models2 = c('Arima(10,1,0) Fixed','Model1 with Corn')
+AIC2 = c(model1$aic,model5$aic)
+MAE = c(accuracy(y_pred1$pred, test_chick)[3], accuracy(y_pred5$pred, test_chick)[3])
+data.frame(Models2, AIC2, MAE)
+```
+```{r}
+par(mfrow = c(1, 2))
+matplot(cbind(test_chick, y_pred1$pred),type= 'l')
+matplot(cbind(test_chick, y_pred5$pred),type= 'l')
+```
+
+#Test Arch effect
+```{r}
+pacf(model5$residuals^2)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
